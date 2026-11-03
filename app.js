@@ -444,6 +444,7 @@
 
   // ---------- share card (1200 × 675, drawn in the browser) ----------
   const SITE = "popdex-tools.sites.tab.bot";
+  const CARD_SITE = "popdex-toolkit.vercel.app"; // URL printed on share cards
   let avatarImg = null;
   function loadAvatar() {
     if (avatarImg) return avatarImg;
@@ -515,7 +516,7 @@
     if (showWallet && L.wallet) { const ws = "Wallet " + shortAddr(L.wallet); ctx.fillStyle = "#8A8A90"; fitText(ctx, ws, rw, 22, "500", MONO); ctx.fillText(ws, rx, 556); }
     // footer
     ctx.strokeStyle = "#2A2B31"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(64, 584); ctx.lineTo(W - 64, 584); ctx.stroke();
-    ctx.textAlign = "left"; ctx.fillStyle = "#BDB9FF"; ctx.font = "700 24px " + SANS; ctx.fillText(SITE, 64, 626);
+    ctx.textAlign = "left"; ctx.fillStyle = "#BDB9FF"; ctx.font = "700 24px " + SANS; ctx.fillText(CARD_SITE, 64, 626);
     ctx.textAlign = "right"; ctx.fillStyle = "#8A8A90"; ctx.font = "500 18px " + SANS; ctx.fillText("The trader-first perp DEX", W - 64, 625);
     return cv;
   }
@@ -578,7 +579,7 @@
     if (cur) out.push(cur); return out;
   }
   function footerAt(ctx, y, siteColor, tagColor, x0, x1) {
-    cvText(ctx, SITE, x0 == null ? 64 : x0, y, { size: 24, weight: "700", color: siteColor || "#BDB9FF" });
+    cvText(ctx, CARD_SITE, x0 == null ? 64 : x0, y, { size: 24, weight: "700", color: siteColor || "#BDB9FF" });
     cvText(ctx, "The trader-first perp DEX", x1 == null ? 1136 : x1, y, { size: 21, weight: "600", color: tagColor || "#8A8A90", align: "right" });
   }
   function digitCells(ctx, digits, pos, x0, y0, w, h, gap, size, style) {
@@ -737,7 +738,7 @@
     cvText(ctx, T.prizeLine, 52, 492, { size: 34, weight: "800", color: T.hasPrize ? "#FFFFFF" : "rgba(255,255,255,0.78)", maxW: sx - 96 });
     cvText(ctx, T.sub, 52, 530, { size: 20, weight: "500", color: "rgba(255,255,255,0.78)", maxW: sx - 96 });
     if (T.wallet) cvText(ctx, T.wallet, 52, 560, { size: 19, weight: "500", color: "rgba(255,255,255,0.78)", maxW: sx - 96, family: MONO });
-    cvText(ctx, SITE, 52, 630, { size: 22, weight: "700", color: "#FFFFFF", maxW: sx - 80 });
+    cvText(ctx, CARD_SITE, 52, 630, { size: 22, weight: "700", color: "#FFFFFF", maxW: sx - 80 });
     // right side
     const rx = 578, tw = 78, gp = 14;
     cvText(ctx, T.date, 1140, 84, { size: 20, weight: "500", color: "#B8B8B8", align: "right", maxW: 540 });
