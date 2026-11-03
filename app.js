@@ -444,7 +444,7 @@
 
   // ---------- share card (1200 × 675, drawn in the browser) ----------
   const SITE = "popdex-tools.sites.tab.bot";
-  const CARD_SITE = "popdex-toolkit.vercel.app"; // URL printed on share cards
+  const CARD_SITE = "popdex-toolkit.site"; // URL printed on share cards
   let avatarImg = null;
   function loadAvatar() {
     if (avatarImg) return avatarImg;
