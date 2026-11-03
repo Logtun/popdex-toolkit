@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PopDEX Toolkit: MegaPop checker, liquidation calculator, funding rates</title>
+<meta name="description" content="Free community tools for PopDEX traders: check your MegaPop tickets against the Bitcoin-drawn Pop Hash, estimate liquidation price and PnL, and watch live funding rates. The trader-first perp DEX.">
+<meta name="theme-color" content="#0E0E0E">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PopDEX Toolkit">
+<meta property="og:title" content="PopDEX Toolkit">
+<meta property="og:description" content="MegaPop Draw Checker, Liquidation & PnL Calculator and live Funding Rate Board for PopDEX traders. The trader-first perp DEX.">
+<meta property="og:image" content="https://popdex-tools.sites.tab.bot/og.png?v=4">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://popdex-tools.sites.tab.bot/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PopDEX Toolkit">
+<meta name="twitter:description" content="MegaPop Draw Checker, Liquidation & PnL Calculator and live Funding Rate Board for PopDEX traders.">
+<meta name="twitter:image" content="https://popdex-tools.sites.tab.bot/og.png?v=4">
+<link rel="icon" type="image/png" href="favicon.png?v=4">
+<link rel="apple-touch-icon" href="avatar-192.png?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <img class="logo" src="avatar-96.png?v=4" alt="" width="40" height="40">
+    <div class="brand">
+      <h1>PopDEX Toolkit</h1>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Tools">
+    <a role="tab" id="tab-megapop" href="#megapop" aria-controls="megapop">MegaPop Checker</a>
+    <a role="tab" id="tab-calc" href="#calc" aria-controls="calc">Calculator</a>
+    <a role="tab" id="tab-funding" href="#funding" aria-controls="funding">Funding</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+<!-- ================= MEGAPOP ================= -->
+<section id="megapop" class="panel" role="tabpanel" aria-labelledby="tab-megapop">
+  <div class="card next" id="mp-next">
+    <div class="next-row">
+      <div>
+        <div class="eyebrow">Next Pop Draw</div>
+        <div class="next-when" id="mp-next-when">Monday 3:00 AM UTC</div>
+      </div>
+      <div class="countdown" id="mp-countdown" aria-live="off">--:--:--</div>
+    </div>
+    <div class="next-pool" id="mp-next-pool"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Check your tickets</h2>
+      <label class="sel-wrap"><span class="sr">Draw</span><select id="mp-draw" aria-label="Choose a draw"><option>Loading draws…</option></select></label>
+    </div>
+    <div id="mp-result" class="result"><div class="loading">Reading the draw from PopDEX's chain…</div></div>
+    <div class="seg sm mode" id="mp-mode" role="radiogroup" aria-label="Check by">
+      <button type="button" class="seg-b on" data-v="tickets" aria-pressed="true">Ticket numbers</button>
+      <button type="button" class="seg-b" data-v="wallet" aria-pressed="false">Wallet address</button>
+    </div>
+    <div id="mp-by-tickets">
+      <label class="lbl" for="mp-tickets">Your ticket numbers</label>
+      <textarea id="mp-tickets" rows="4" inputmode="numeric" spellcheck="false" placeholder="Paste one or many 6-digit tickets, e.g.&#10;839274 730074 000888"></textarea>
+      <div class="btn-row">
+        <button id="mp-check" class="btn primary" type="button">Check tickets</button>
+        <button id="mp-clear" class="btn ghost" type="button">Clear</button>
+      </div>
+    </div>
+    <div id="mp-by-wallet" hidden>
+      <label class="lbl" for="mp-wallet">Your wallet address</label>
+      <input id="mp-wallet" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x… (the main wallet you trade with on PopDEX)">
+      <p class="hint">Read-only lookup. No wallet connection, nothing to sign. Shows every ticket this wallet holds, read from PopDEX.</p>
+      <div class="btn-row">
+        <button id="mp-wcheck" class="btn primary" type="button">Look up tickets</button>
+        <button id="mp-wclear" class="btn ghost" type="button">Clear</button>
+      </div>
+    </div>
+    <div id="mp-out" class="out" aria-live="polite"></div>
+    <div id="mp-share" class="share-panel" hidden>
+      <div class="share-head"><h3>Share your result</h3><button type="button" class="x-close" id="sh-close" aria-label="Close share panel">Close</button></div>
+      <div class="share-prev"><img id="sh-img" alt="Share card preview" width="1200" height="675"></div>
+      <label class="chk" id="sh-wallet-wrap" hidden><input type="checkbox" id="sh-wallet"> Show my wallet on the card (shortened)</label>
+      <div class="btn-row share-btns">
+        <button type="button" class="btn primary" id="sh-dl">Download image</button>
+        <button type="button" class="btn ghost" id="sh-native" hidden>Share on X</button>
+      </div>
+      <p class="hint" id="sh-note">On X, your card shows as the link preview.</p>
+    </div>
+  </div>
+
+  <div class="card" id="mp-proof"></div>
+
+  <details class="how">
+    <summary>How this is calculated</summary>
+    <div class="how-body">
+      <p>The rule, as the PopDEX docs state it:</p>
+      <blockquote>“The Pop Draw takes place every Monday at 3:00 AM UTC. … Unless otherwise announced, the selected Bitcoin block is the first Bitcoin block produced at or after the scheduled draw time. … MegaPop extracts the last 6 numeric digits from the selected Bitcoin block hash to generate the Pop Hash.”</blockquote>
+      <blockquote>“The prize tier is determined by the number of digits that match the Pop Hash in the same position — a digit only counts as a match if both the digit and its position are the same. Matches do not need to start from the first digit or be consecutive.”</blockquote>
+      <ul>
+        <li><b>Pop Hash:</b> take every digit 0–9 in the block hash (letters a–f are skipped), keep the last 6, in their original order.</li>
+        <li><b>Matching:</b> compare your ticket with the Pop Hash position by position and count equal digits. 6 = Mega Prize (42% of the pool, shared by all 6/6 tickets), 5 = Super Prize (8% of the pool, shared), 4 = 100 USDT, 3 = 10 USDT, 2 = 5 USDT.</li>
+        <li><b>Caps and carry-over:</b> fixed prizes (4, 3, 2 matches) are capped at 40% of the pool in total and reduced proportionally if they would exceed it. Anything not paid out rolls into the next round's pool.</li>
+        <li><b>Official result:</b> read live from PopDEX's MegaPop contract on their chain (winning number, BTC block hash, pool and per-ticket payout for each tier). This page then recomputes the Pop Hash itself from Bitcoin (mempool.space, with blockstream.info as backup) and says whether the two match.</li>
+        <li><b>Wallet lookup:</b> reads the wallet's tickets, prize tier, payout and claim status from PopDEX's public MegaPop API (the same data the MegaPop page in the PopDEX app shows), then re-checks every ticket against the Pop Hash on this page and compares the ticket count with <code>getAccountTicketCount</code> on PopDEX's MegaPop contract. The contract docs say this count “does not resolve subaccount → master”, so use the main wallet that holds the tickets.</li>
+        <li><b>Share link</b> puts the draw and your ticket numbers (or wallet) in the link itself; nothing is stored on a server.</li>
+        <li><b>Prize per ticket</b> for a finished draw is the official per-ticket amount for that tier. For the upcoming draw, the pool prizes are shown as an estimate from the pool size right now.</li>
+      </ul>
+      <p class="srcs">Sources: <a href="https://popdex.xyz/docs/product-docs/rewards/megapop" target="_blank" rel="noopener">PopDEX docs: MegaPop</a> · <a href="https://popdex.xyz/docs/smart-contract/MegaPop" target="_blank" rel="noopener">PopDEX docs: MegaPop contract (0x1013)</a> · <a href="https://popdex.xyz/docs/api/domain" target="_blank" rel="noopener">API domains (Web3 RPC)</a></p>
+    </div>
+  </details>
+</section>
+
+<!-- ================= CALCULATOR ================= -->
+<section id="calc" class="panel" role="tabpanel" aria-labelledby="tab-calc" hidden>
+  <div class="seg mode-top" id="c-mode" role="radiogroup" aria-label="Calculator mode">
+    <button type="button" class="seg-b on" data-v="single" aria-pressed="true">Single position</button>
+    <button type="button" class="seg-b" data-v="portfolio" aria-pressed="false">Portfolio (cross margin)</button>
+  </div>
+  <div id="calc-single">
+  <div class="card">
+    <div class="card-head"><h2>Liquidation &amp; PnL</h2><span class="tag" id="c-live">Loading markets…</span></div>
+    <div class="grid2">
+      <label class="fld span2"><span>Market</span><select id="c-market"></select></label>
+      <div class="fld span2"><span>Side</span>
+        <div class="seg" role="radiogroup" aria-label="Side">
+          <button type="button" class="seg-b long on" data-side="1" aria-pressed="true">Long</button>
+          <button type="button" class="seg-b short" data-side="-1" aria-pressed="false">Short</button>
+        </div>
+      </div>
+      <label class="fld"><span>Entry price</span><input id="c-entry" type="text" inputmode="decimal"></label>
+      <label class="fld"><span>Exit / target price</span><input id="c-exit" type="text" inputmode="decimal"></label>
+      <label class="fld"><span>Size</span>
+        <div class="in-unit"><input id="c-size" type="text" inputmode="decimal" value="1000"><select id="c-unit" aria-label="Size unit"><option value="usdt">USDT</option><option value="qty">Contracts</option></select></div>
+      </label>
+      <label class="fld"><span>Leverage <b id="c-levmax"></b></span>
+        <div class="in-unit"><input id="c-lev" type="text" inputmode="decimal" value="10"><span class="unit">x</span></div>
+      </label>
+      <input id="c-levr" class="span2 range" type="range" min="1" max="50" step="1" value="10" aria-label="Leverage slider">
+      <label class="fld"><span>VIP tier</span><select id="c-vip"></select></label>
+      <label class="fld"><span>Extra margin in account</span>
+        <div class="in-unit"><input id="c-extra" type="text" inputmode="decimal" value="0"><span class="unit">USDT</span></div>
+      </label>
+      <div class="fld"><span>Entry order</span>
+        <div class="seg sm" data-for="in"><button type="button" class="seg-b on" data-v="taker">Taker</button><button type="button" class="seg-b" data-v="maker">Maker</button></div></div>
+      <div class="fld"><span>Exit order</span>
+        <div class="seg sm" data-for="out"><button type="button" class="seg-b on" data-v="taker">Taker</button><button type="button" class="seg-b" data-v="maker">Maker</button></div></div>
+    </div>
+    <p class="hint" id="c-markhint"></p>
+  </div>
+
+  <div class="card" id="c-out"></div>
+
+  <details class="how">
+    <summary>How this is calculated</summary>
+    <div class="how-body">
+      <ul>
+        <li><b>Notional</b> = contracts × entry price. <b>Initial margin</b> = notional ÷ leverage. Max leverage = 1 ÷ IM rate, and it drops as the position grows into higher notional tiers (<a href="https://popdex.xyz/docs/product-docs/trading/margining" target="_blank" rel="noopener">Margining</a>). Tiers come live from PopDEX's <a href="https://popdex.xyz/docs/api/info/Get-Futures-Tier" target="_blank" rel="noopener">futures tier API</a>.</li>
+        <li><b>Fees</b> = fill quantity × fill price × fee rate (<a href="https://popdex.xyz/docs/product-docs/trading/fees" target="_blank" rel="noopener">Trading Fees</a>). Rates by VIP tier from PopDEX's <a href="https://popdex.xyz/docs/api/info/Get-Symbol-Fee-Rate" target="_blank" rel="noopener">fee-rate API</a> (VIP 0: maker 0.010%, taker 0.032%).</li>
+        <li><b>PnL</b> = side × (exit − entry) × contracts, minus entry and exit fees (<a href="https://popdex.xyz/docs/product-docs/trading/entry-price-pnl" target="_blank" rel="noopener">Entry Price and PnL</a>). <b>ROE</b> = net PnL ÷ initial margin. Funding is not included.</li>
+        <li><b>Maintenance margin</b> = position size × (MMR rate + your taker fee rate) × mark price, with the MMR rate applied tier by tier and summed (<a href="https://popdex.xyz/docs/product-docs/trading/margining" target="_blank" rel="noopener">Margining</a>).</li>
+        <li><b>Estimated liquidation price</b>: the mark price where equity = maintenance margin (MMR reaches 100%). Equity = initial margin + extra margin − entry fee + unrealised PnL. Solved numerically.</li>
+      </ul>
+      <p class="warn-note"><b>This is an estimate.</b> The docs say: “You cannot see the exact liquidation price formula.” PopDEX uses cross margin (isolated is listed as coming soon), so your real liquidation price depends on your whole account: other positions, collateral discounts, funding and open orders. This assumes this is your only position and your equity is the margin above. Liquidation uses the mark price, not the last price (<a href="https://popdex.xyz/docs/product-docs/trading/liquidations" target="_blank" rel="noopener">Liquidations</a>).</p>
+    </div>
+  </details>
+  </div>
+
+  <div id="calc-port" hidden>
+    <div class="card">
+      <div class="card-head"><h2>Portfolio (cross margin)</h2><span class="tag" id="p-live">Loading markets…</span></div>
+      <div class="grid2">
+        <label class="fld"><span>Account collateral</span><div class="in-unit"><input id="p-coll" type="text" inputmode="decimal" value="2000"><span class="unit">USDT</span></div></label>
+        <label class="fld"><span>VIP tier</span><select id="p-vip"></select></label>
+      </div>
+      <p class="hint">Collateral = your account balance before open-position PnL (USDT). Unrealized PnL is added from live mark prices.</p>
+      <div id="p-list" class="p-list"></div>
+      <div class="btn-row"><button type="button" class="btn ghost" id="p-add">+ Add position</button></div>
+    </div>
+    <div class="card" id="p-out"></div>
+    <details class="how">
+      <summary>How this is calculated</summary>
+      <div class="how-body">
+        <ul>
+          <li><b>Equity</b> = Total Collateral Value + Unrealized PnL. Unrealized PnL per position = side × (mark − entry) × contracts, at PopDEX's live mark price (<a href="https://popdex.xyz/docs/product-docs/trading/margining" target="_blank" rel="noopener">Margining</a>, <a href="https://popdex.xyz/docs/product-docs/trading/entry-price-pnl" target="_blank" rel="noopener">Entry Price and PnL</a>).</li>
+          <li><b>Initial margin</b> per position = contracts × mark price ÷ leverage. <b>IMR</b> = total initial margin ÷ equity; above 100% PopDEX cancels open orders and blocks new positions.</li>
+          <li><b>Maintenance margin</b> per position = size × (MMR rate + your taker fee rate) × mark price, MMR applied tier by tier and summed, same as the single-position calculator. <b>Account margin ratio (MMR)</b> = total maintenance margin ÷ equity. “If your equity falls to the point where MMR reaches 100% … Liquidation begins.”</li>
+          <li><b>Uniform move</b>: the single % move against every position at the same time (longs down, shorts up) at which equity equals total maintenance margin. <b>Per-position liq price</b>: the mark price of that one market at which the account reaches 100% MMR while every other market stays at its current mark. Both solved numerically.</li>
+        </ul>
+        <p class="warn-note"><b>This is an estimate.</b> The docs say: “You cannot see the exact liquidation price formula.” It leaves out collateral discounts on non-USDT tokens, open orders, funding and fees still to pay, and assumes prices move as described. Real markets don't move together by the same %.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ================= FUNDING ================= -->
+<section id="funding" class="panel" role="tabpanel" aria-labelledby="tab-funding" hidden>
+  <div class="card">
+    <div class="card-head">
+      <h2>Funding rates</h2>
+      <div class="next-fund"><span class="eyebrow">Next funding</span> <b id="f-next">--:--</b></div>
+    </div>
+    <div class="f-tools">
+      <div class="seg sm" id="f-filter"><button type="button" class="seg-b on" data-v="all">All</button><button type="button" class="seg-b" data-v="Crypto">Crypto</button><button type="button" class="seg-b" data-v="Rwa">RWA</button></div>
+      <input id="f-search" type="search" placeholder="Search market" aria-label="Search market">
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl" id="f-table">
+        <thead><tr>
+          <th data-k="symbol" class="l">Market</th>
+          <th data-k="rate">Rate</th>
+          <th data-k="apr">APR</th>
+          <th data-k="pays" class="hide-s">Who pays</th>
+          <th data-k="next" class="hide-s">Next</th>
+          <th data-k="mark" class="hide-s">Mark</th>
+        </tr></thead>
+        <tbody><tr><td colspan="6" class="loading">Loading live rates…</td></tr></tbody>
+      </table>
+    </div>
+    <p class="hint" id="f-updated"></p>
+  </div>
+
+  <div class="card">
+    <h2>Funding payment calculator</h2>
+    <div class="grid2">
+      <label class="fld"><span>Market</span><select id="fc-market"></select></label>
+      <div class="fld"><span>Side</span>
+        <div class="seg sm" id="fc-side"><button type="button" class="seg-b long on" data-v="1">Long</button><button type="button" class="seg-b short" data-v="-1">Short</button></div></div>
+      <label class="fld"><span>Position value</span><div class="in-unit"><input id="fc-value" type="text" inputmode="decimal" value="10000"><span class="unit">USDT</span></div></label>
+      <label class="fld"><span>Funding rate</span><div class="in-unit"><input id="fc-rate" type="text" inputmode="decimal"><span class="unit">%</span></div></label>
+      <label class="fld span2"><span>Hold for</span><div class="in-unit"><input id="fc-hours" type="text" inputmode="decimal" value="24"><span class="unit">hours</span></div></label>
+    </div>
+    <div id="fc-out" class="fc-out"></div>
+  </div>
+
+  <details class="how">
+    <summary>How this is calculated</summary>
+    <div class="how-body">
+      <ul>
+        <li><b>Rate</b> is PopDEX's current funding rate for one settlement period, live from the public <a href="https://popdex.xyz/docs/api/market/Get-Current-Funding-Rate" target="_blank" rel="noopener">Get Current Funding Rate</a> API, refreshed every 60 seconds. Mark prices come from <a href="https://popdex.xyz/docs/api/market/Get-Tickers" target="_blank" rel="noopener">Get Tickers</a>.</li>
+        <li><b>Who pays</b>: “A positive funding rate means long holders pay short holders. A negative funding rate means short holders pay long holders.”</li>
+        <li><b>Funding payment</b> = position size × mark price × funding rate, settled “at the top of every hour”, or every N hours for markets with a longer interval (1h, 2h, 4h or 8h) (<a href="https://popdex.xyz/docs/product-docs/trading/funding" target="_blank" rel="noopener">Funding Rate</a>).</li>
+        <li><b>7-day history</b> (tap a market): every settled funding rate of the last 7 days from PopDEX's public <a href="https://popdex.xyz/docs/api/market/Get-History-Funding-Rate" target="_blank" rel="noopener">Get History Funding Rate</a> API. Average, lowest and highest are over those settlements.</li>
+        <li><b>APR</b> = rate × settlements per day (24 ÷ interval) × 365. A simple annualised figure, not a forecast: the rate changes every period.</li>
+        <li>Rates are bounded by an 8-hour cap and floor that is scaled to the market's interval. PopDEX does not keep any of the funding: it moves between longs and shorts.</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+</main>
+
+<footer class="foot">
+  <p>by <a href="https://x.com/iamlogtun" target="_blank" rel="noopener">@iamlogtun</a></p>
+  <p class="small">Data: PopDEX public API and chain, mempool.space, blockstream.info. Rules: <a href="https://popdex.xyz/docs" target="_blank" rel="noopener">popdex.xyz/docs</a>.</p>
+</footer>
+<noscript><p class="nojs">These tools need JavaScript.</p></noscript>
+<script src="core.js?v=3"></script>
+<script src="app.js?v=22"></script>
+</body>
+</html>
