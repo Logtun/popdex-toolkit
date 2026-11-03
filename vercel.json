@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://popdex-tools.sites.tab.bot/api/:path*"
+    },
+    {
+      "source": "/s/:path*",
+      "destination": "https://popdex-tools.sites.tab.bot/s/:path*"
+    }
+  ]
+}
