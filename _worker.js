@@ -313,7 +313,7 @@ async function cardServe(req, env, url) {
   const md = head.customMetadata || {};
   const title = md.e ? (Number(md.b) >= 2 ? "Hit " + md.b + "/6 on PopDEX MegaPop Epoch #" + md.e : "PopDEX MegaPop Epoch #" + md.e + " result") : "PopDEX MegaPop result";
   const desc = (md.p ? "Pop Hash " + md.p + ". " : "") + "Check your MegaPop tickets on PopDEX Toolkit.";
-  const img = ORIGIN + "/s/" + id + ".png", page = PUB + "/s/" + id, dest = PUB + "/#megapop";
+  const img = PUB + "/s/" + id + ".png", page = PUB + "/s/" + id, dest = PUB + "/#megapop";
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     "<title>" + esc(title) + "</title>" +
     '<meta name="description" content="' + esc(desc) + '">' +
