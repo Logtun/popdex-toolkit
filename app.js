@@ -801,7 +801,7 @@
   ];
   function caption(L, link) {
     let k = 0; try { k = Number(localStorage.getItem("pdx_cap") || 0) % CAPTIONS.length; } catch (e) {}
-    const s = { url: link || ("https://" + SITE + "/#megapop"), prize: L.prize > 0 ? " (" + (L.mode === "wallet" ? "won " : L.prizeEst ? "≈ " : "") + fmtNum(L.prize, 2) + " USDT)" : "" };
+    const s = { url: link || ("https://" + CARD_SITE + "/#megapop"), prize: L.prize > 0 ? " (" + (L.mode === "wallet" ? "won " : L.prizeEst ? "≈ " : "") + fmtNum(L.prize, 2) + " USDT)" : "" };
     return { text: CAPTIONS[k](L, s), next: (k + 1) % CAPTIONS.length };
   }
   function xIntent(text) { return "https://x.com/intent/post?text=" + encodeURIComponent(text); }
@@ -818,7 +818,7 @@
       const r = await fetch("/api/card" + q, { method: "POST", headers: { "content-type": "image/png" }, body: blob, signal: ctl ? ctl.signal : undefined });
       const j = r.ok ? await r.json() : null;
       if (tok !== sh.tok) return;
-      if (j && j.id && /^[A-Za-z0-9]{8,10}$/.test(j.id)) { sh.card = "https://" + SITE + "/s/" + j.id; setXLink(L); }
+      if (j && j.id && /^[A-Za-z0-9]{8,10}$/.test(j.id)) { sh.card = "https://" + CARD_SITE + "/s/" + j.id; setXLink(L); }
     } catch (e) { /* keep the #megapop fallback */ }
     finally { clearTimeout(timer); }
   }
