@@ -296,7 +296,7 @@ async function cardUpload(req, env, url) {
   await note.put(env, "h/" + hash, id);
   return J({ id, url: ORIGIN + "/s/" + id }, 200, 0);
 }
-const PUB = "https://popdex-toolkit.vercel.app"; // public address used in shared links
+const PUB = "https://popdex-toolkit.site"; // public address used in shared links
 const toMegapop = () => new Response(null, { status: 302, headers: { location: PUB + "/#megapop", "cache-control": "no-store" } });
 async function cardServe(req, env, url) {
   const m = url.pathname.match(/^\/s\/([A-Za-z0-9]{8,10})(\.png)?$/);
