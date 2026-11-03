@@ -2,7 +2,7 @@
 
 A set of free tools for PopDEX traders: check MegaPop tickets against the Bitcoin-drawn Pop Hash and share a result card, estimate liquidation price and PnL before opening a trade, and watch live funding rates across every market.
 
-**Live:** https://popdex-tools.sites.tab.bot/
+**Live:** https://popdex-toolkit.vercel.app/
 
 ## Features
 
@@ -46,7 +46,7 @@ npx wrangler deploy
 
 Bindings the worker expects: `CARDS` (R2 bucket) and `ASSETS` (static files). The same folder also works on Cloudflare Pages (the root `_worker.js` runs in advanced mode) with the same bindings.
 
-If you deploy on your own domain, replace `https://popdex-tools.sites.tab.bot` in `_worker.js` and the meta tags in `index.html` with your URL.
+If you deploy on your own domain, replace `https://popdex-toolkit.vercel.app` in `_worker.js` and the meta tags in `index.html` with your URL.
 
 ## Credits
 
