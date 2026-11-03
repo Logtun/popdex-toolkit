@@ -296,7 +296,8 @@ async function cardUpload(req, env, url) {
   await note.put(env, "h/" + hash, id);
   return J({ id, url: ORIGIN + "/s/" + id }, 200, 0);
 }
-const toMegapop = () => new Response(null, { status: 302, headers: { location: ORIGIN + "/#megapop", "cache-control": "no-store" } });
+const PUB = "https://popdex-toolkit.vercel.app"; // public address used in shared links
+const toMegapop = () => new Response(null, { status: 302, headers: { location: PUB + "/#megapop", "cache-control": "no-store" } });
 async function cardServe(req, env, url) {
   const m = url.pathname.match(/^\/s\/([A-Za-z0-9]{8,10})(\.png)?$/);
   if (!m || !env.CARDS) return toMegapop();
@@ -312,7 +313,7 @@ async function cardServe(req, env, url) {
   const md = head.customMetadata || {};
   const title = md.e ? (Number(md.b) >= 2 ? "Hit " + md.b + "/6 on PopDEX MegaPop Epoch #" + md.e : "PopDEX MegaPop Epoch #" + md.e + " result") : "PopDEX MegaPop result";
   const desc = (md.p ? "Pop Hash " + md.p + ". " : "") + "Check your MegaPop tickets on PopDEX Toolkit.";
-  const img = ORIGIN + "/s/" + id + ".png", page = ORIGIN + "/s/" + id, dest = ORIGIN + "/#megapop";
+  const img = ORIGIN + "/s/" + id + ".png", page = PUB + "/s/" + id, dest = PUB + "/#megapop";
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     "<title>" + esc(title) + "</title>" +
     '<meta name="description" content="' + esc(desc) + '">' +
