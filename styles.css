@@ -281,3 +281,13 @@ blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid var(--p3);backgro
 .p-top .p-side{flex:none}
 .fh-svg{height:auto}
 @media (max-width:520px){.p-top{grid-template-columns:1fr 1fr}}
+
+/* wallet-only share cards (Nov 9) */
+.check-only{margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
+.check-only p{margin:0;font-size:13px;color:var(--muted);flex:1 1 200px}
+.card-pick{margin-top:14px;border-top:1px solid var(--line);padding-top:4px}
+.pick-row{display:flex;gap:8px}
+.pick-row input{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;letter-spacing:.12em;max-width:160px}
+.tk.pick{cursor:pointer}
+.tk.pick:hover,.tk.pick:focus-visible{border-color:var(--p3);outline:none}
+.tk.pick.picked{border-color:var(--p3);box-shadow:0 0 0 1px var(--p3) inset}

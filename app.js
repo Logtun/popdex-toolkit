@@ -278,12 +278,8 @@
     }).join("") + "</div>";
     if (rows.length > show.length) h += '<div class="more">+' + fmtNum(rows.length - show.length, 0) + " more tickets with no prize</div>";
     if (valid.length > 20000) h += '<div class="more">Only the first 20,000 tickets were checked.</div>';
-    if (rows.length) {
-      const best = rows.slice().sort((a, b) => b.m.count - a.m.count)[0];
-      mp.last = { mode: "tickets", epoch: e.epoch, drawMs: e.endAtMs, pop, official, best: best.t, bestPos: best.m.positions, bestCount: best.m.count,
-        prize: total, prizeEst: anyEst, count: rows.length, wins: wins.length, tickets: valid.slice(0, 300), more: valid.length > 300 };
-      h += shareBar();
-    }
+    // Check only: no share card from typed numbers (anyone can type any number). Cards come from the wallet flow only.
+    if (rows.length) h += '<div class="check-only"><p>Want a card to share? Check with your wallet, it only makes cards for tickets you really hold.</p><button type="button" class="btn ghost small" data-act="towallet">Check with my wallet</button></div>';
     if (invalid.length) h += '<div class="errs"><p>Skipped ' + invalid.length + " entr" + (invalid.length === 1 ? "y" : "ies") + " that are not 6 digits: " + esc(invalid.slice(0, 8).join(", ")) + (invalid.length > 8 ? "…" : "") + "</p></div>";
     out.innerHTML = h;
   }
@@ -388,16 +384,48 @@
       const cls = isWin ? (cnt >= 6 ? "tk win mega" : "tk win") : "tk";
       const tier = isWin ? cnt + "/6 · " + C.TIER_NAMES[cnt] : r.m.count + "/6 match";
       const st = r.t.st && r.t.st !== "Lost" ? " · " + r.t.st : "";
-      return '<div class="' + cls + '"><div class="tk-num" aria-label="ticket ' + r.t.n + '">' + digits + '</div><div class="tk-info"><b>' + (isWin ? fmtNum(amt, 2) + " USDT" : "No prize") + "</b><small>" + esc(tier + st) + "</small></div></div>";
+      const pick = pop ? ' pick" data-tk="' + esc(r.t.n) + '" tabindex="0" role="button" aria-label="Make a card for ticket ' + esc(r.t.n) : "";
+      return '<div class="' + cls + pick + '"><div class="tk-num" aria-label="ticket ' + r.t.n + '">' + digits + '</div><div class="tk-info"><b>' + (isWin ? fmtNum(amt, 2) + " USDT" : "No prize") + "</b><small>" + esc(tier + st) + "</small></div></div>";
     }).join("") + "</div>";
     if (rows.length > show.length) h += '<div class="more">+' + fmtNum(rows.length - show.length, 0) + " more tickets with no prize</div>";
     if (pop) {
       const best = rows.slice().sort((a, b) => b.m.count - a.m.count)[0];
-      mp.last = { mode: "wallet", epoch: j.epoch, drawMs: e ? e.endAtMs : s.endAtMs, pop, official: !!(e && e.popHash), best: best.t.n, bestPos: best.m.positions, bestCount: best.m.count,
-        prize: won, prizeEst: false, count: s.tickets, wins: s.winningTickets != null ? s.winningTickets : wins.length, wallet: j.address };
-      h += shareBar();
-    }
+      // Share cards are made ONLY for a ticket this wallet holds in this epoch (see makeWalletCard).
+      mp.wctx = { address: j.address, epoch: j.epoch, drawMs: e ? e.endAtMs : s.endAtMs, pop, official: !!(e && e.popHash), bestN: best.t.n,
+        totalWon: won, count: s.tickets, wins: s.winningTickets != null ? s.winningTickets : wins.length };
+      h += '<div class="card-pick"><label class="lbl" for="mp-cardt">Make a share card for one of this wallet\'s tickets</label>' +
+        '<div class="pick-row"><input id="mp-cardt" type="text" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" value="' + esc(best.t.n) + '" aria-label="Ticket number for your card">' +
+        '<button type="button" class="btn primary" data-act="wcard">Make card</button></div>' +
+        '<p class="small">Tap any ticket above to pick it. Only tickets this wallet holds in Epoch #' + j.epoch + ' can become a card.</p>' +
+        '<div id="mp-cardt-err" class="errs" role="alert" hidden></div></div>';
+    } else mp.wctx = null;
+    if (mp.last && (mp.last.wallet !== j.address || mp.last.epoch !== j.epoch || !pop)) { mp.last = null; hideShare(); }
     out.innerHTML = h;
+  }
+  const pad6 = (x) => String(x == null ? "" : x).replace(/\D/g, "").padStart(6, "0");
+  async function makeWalletCard() {
+    const j = mp.wdata, c = mp.wctx, inp = $("#mp-cardt"), err = $("#mp-cardt-err");
+    if (!j || !c || !inp || c.address !== j.address || c.epoch !== j.epoch) return;
+    const raw = (inp.value || "").replace(/\s/g, "");
+    const fail = (msg) => { mp.last = null; hideShare(); if (err) { err.innerHTML = "<p>" + esc(msg) + "</p>"; err.hidden = false; } };
+    if (err) err.hidden = true;
+    if (!/^\d{6}$/.test(raw)) return fail("Enter a 6-digit ticket number from this wallet.");
+    let t = (j.tickets || []).find((x) => pad6(x.n) === raw) || null;
+    if (!t && j.truncated) { // big wallets: the page holds the first 3,000 tickets, so ask PopDEX for this exact number
+      try {
+        const r = await fetch("/api/wallet-ticket?addr=" + j.address + "&epoch=" + j.epoch + "&n=" + raw, { headers: { accept: "application/json" } });
+        const k = await r.json().catch(() => ({}));
+        if (r.ok && k.held && k.ticket && pad6(k.ticket.n) === raw) t = k.ticket;
+        else if (!r.ok) return fail("Couldn't confirm that ticket with PopDEX right now. Try again in a minute.");
+      } catch (e2) { return fail("Couldn't confirm that ticket with PopDEX right now. Try again in a minute."); }
+    }
+    if (mp.wdata !== j) return;
+    if (!t) return fail("This ticket isn't in this wallet. " + raw + " is not one of the tickets " + shortAddr(j.address) + " holds in Epoch #" + j.epoch + ", so no card can be made.");
+    const n = pad6(t.n), m = C.matchTicket(n, c.pop), isBest = n === pad6(c.bestN);
+    mp.last = { mode: "wallet", verified: true, epoch: c.epoch, drawMs: c.drawMs, pop: c.pop, official: c.official, best: n, bestPos: m.positions, bestCount: m.count,
+      prize: isBest ? c.totalWon : (Number(t.won) || 0), prizeEst: false, count: c.count, wins: c.wins, wallet: j.address, tLabel: isBest ? "BEST TICKET" : "TICKET" };
+    $$("#mp-out .tk.pick").forEach((el) => el.classList.toggle("picked", el.dataset.tk === t.n));
+    openShare();
   }
   $("#mp-wcheck").addEventListener("click", () => { mp.fromLink = false; lookupWallet(false).then(() => { const o = $("#mp-out"); if (o.firstChild) o.scrollIntoView({ behavior: "smooth", block: "start" }); }); });
   $("#mp-wallet").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); $("#mp-wcheck").click(); } });
@@ -406,11 +434,17 @@
   $("#mp-out").addEventListener("click", (ev) => {
     const tr = ev.target.closest("tr[data-ep]");
     if (tr) { $("#mp-draw").value = tr.dataset.ep; selectDraw(); return; }
+    const tk = ev.target.closest(".tk.pick[data-tk]");
+    if (tk && $("#mp-cardt")) { $("#mp-cardt").value = pad6(tk.dataset.tk); makeWalletCard(); return; }
     const b = ev.target.closest("[data-act]"); if (!b) return;
-    if (b.dataset.act === "share") openShare();
+    if (b.dataset.act === "wcard") makeWalletCard();
+    if (b.dataset.act === "towallet") { setMode("wallet"); const w = $("#mp-wallet"); w.scrollIntoView({ behavior: "smooth", block: "center" }); if (!w.value) w.focus(); }
     if (b.dataset.act === "link") copyLink(b);
   });
-  $("#mp-out").addEventListener("keydown", (ev) => { const tr = ev.target.closest("tr[data-ep]"); if (tr && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); tr.click(); } });
+  $("#mp-out").addEventListener("keydown", (ev) => {
+    if (ev.target.id === "mp-cardt") { if (ev.key === "Enter") { ev.preventDefault(); makeWalletCard(); } return; }
+    const tr = ev.target.closest("tr[data-ep], .tk.pick[data-tk]"); if (tr && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); tr.click(); }
+  });
 
   // ---------- share link ----------
   function applyLink(hp) {
@@ -493,7 +527,7 @@
     }
     // best ticket
     ctx.textAlign = "left"; ctx.fillStyle = "#8A8A90"; ctx.font = "700 19px " + SANS;
-    ctx.fillText(L.mode === "wallet" || L.count > 1 ? "BEST TICKET" : "TICKET", 64, 398);
+    ctx.fillText(L.tLabel || (L.mode === "wallet" || L.count > 1 ? "BEST TICKET" : "TICKET"), 64, 398);
     const tw = 62, th = 74, tg = 10, ty = 414;
     for (let i = 0; i < 6; i++) {
       const hit = L.bestPos.includes(i), x = x0 + i * (tw + tg);
@@ -539,7 +573,7 @@
       sub: fmtNum(L.count, 0) + " ticket" + (L.count === 1 ? "" : "s") + " checked · " + fmtNum(L.wins, 0) + " winning",
       wallet: showWallet && L.wallet ? "Wallet " + shortAddr(L.wallet) : "",
       hashLabel: "POP HASH" + (L.official ? "" : " (PREVIEW)"),
-      tLabel: L.mode === "wallet" || L.count > 1 ? "BEST TICKET" : "TICKET",
+      tLabel: L.tLabel || (L.mode === "wallet" || L.count > 1 ? "BEST TICKET" : "TICKET"),
       big: L.bestCount + "/6", onEp: "on Epoch #" + L.epoch, pill: "EPOCH #" + L.epoch,
       date: "Pop Draw · " + longDate(L.drawMs),
       note: "Matching digits highlighted (same digit, same position)",
@@ -814,7 +848,7 @@
     const ctl = window.AbortController ? new AbortController() : null;
     const timer = setTimeout(() => { if (ctl) ctl.abort(); }, 25000);
     try {
-      const q = "?e=" + encodeURIComponent(L.epoch) + "&b=" + encodeURIComponent(L.bestCount) + "&p=" + encodeURIComponent(L.pop || "");
+      const q = "?e=" + encodeURIComponent(L.epoch) + "&b=" + encodeURIComponent(L.bestCount) + "&p=" + encodeURIComponent(L.pop || "") + "&w=" + encodeURIComponent(L.wallet || "") + "&t=" + encodeURIComponent(L.best || "");
       const r = await fetch("/api/card" + q, { method: "POST", headers: { "content-type": "image/png" }, body: blob, signal: ctl ? ctl.signal : undefined });
       const j = r.ok ? await r.json() : null;
       if (tok !== sh.tok) return;
@@ -824,7 +858,7 @@
   }
   function hideShare() { sh.tok++; const p = $("#mp-share"); if (p) p.hidden = true; }
   async function renderShare() {
-    const L = mp.last; if (!L) return;
+    const L = mp.last; if (!L || L.mode !== "wallet" || !L.verified) return; // cards only for a ticket the wallet holds
     const showW = L.mode === "wallet" && $("#sh-wallet").checked;
     const cv = await drawCard(L, showW);
     const blob = await new Promise((res) => cv.toBlob(res, "image/png"));
@@ -841,7 +875,7 @@
   }
   const IS_PC = !!(window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches);
   async function openShare() {
-    const p = $("#mp-share"); if (!mp.last) return;
+    const p = $("#mp-share"); if (!mp.last || mp.last.mode !== "wallet" || !mp.last.verified) return;
     $("#sh-wallet-wrap").hidden = mp.last.mode !== "wallet";
     p.hidden = false;
     await renderShare();

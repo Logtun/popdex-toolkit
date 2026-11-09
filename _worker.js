@@ -244,6 +244,17 @@ async function wallet(addr, wantEpoch) {
   return memSet(key, { source: "PopDEX public MegaPop API (" + API + "/api/v1/megapop/account/…) + getAccountTicketCount on 0x1013",
     fetchedAt: Date.now(), address: a, latestEpochId: latest, epoch: sel, summary, tickets, ticketsTotal: total, truncated });
 }
+// Is ticket <n> held by wallet <addr> in epoch <ep>? Asks PopDEX's MegaPop API for that exact number (works for any wallet size).
+async function heldTicket(addr, ep, n) {
+  const a = addr.toLowerCase(), key = "h:" + a + ":" + ep + ":" + n;
+  const hit = memGet(key, 60000); if (hit) return hit;
+  const w = memGet("w:" + a + ":" + ep, 60000);          // a wallet lookup this isolate just served
+  if (w && !w.truncated && w.epoch === ep) { const t = w.tickets.find((x) => String(x.n).padStart(6, "0") === n); return memSet(key, { held: !!t, ticket: t || null }); }
+  if (!budgetOk()) { const e = new Error("busy"); e.busy = true; throw e; }
+  const j = await apiGet("/api/v1/megapop/account/" + a + "/draws/tickets?epoch=" + ep + "&number=" + n + "&limit=100");
+  const t = (Array.isArray(j.data) ? j.data : []).map(slimTicket).find((x) => String(x.n).padStart(6, "0") === n) || null;
+  return memSet(key, { held: !!t, ticket: t });
+}
 
 // ---------- funding history ----------
 async function fundingHistory(sym) {
@@ -281,6 +292,17 @@ async function cardUpload(req, env, url) {
   if (buf.length < 33 || SIG.some((v, i) => buf[i] !== v) || String.fromCharCode(...buf.slice(12, 16)) !== "IHDR") return J({ error: "not_png" }, 415);
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   if (dv.getUint32(16) !== CARD_W || dv.getUint32(20) !== CARD_H) return J({ error: "bad_dimensions" }, 422);
+  const m = cardMeta(url);
+  // Cards only for a real ticket: the wallet (w) must hold ticket (t) in epoch (e). Typed-in numbers never get a card.
+  const w = (url.searchParams.get("w") || "").trim(), t = (url.searchParams.get("t") || "").trim();
+  if (!ADDR_RE.test(w) || !/^\d{6}$/.test(t) || !m.e) return J({ error: "wallet_ticket_required" }, 422);
+  let held;
+  try { held = await heldTicket(w, Number(m.e), t); } catch (e) { return J({ error: e.busy ? "busy" : "verify_failed" }, e.busy ? 429 : 502); }
+  if (!held.held) return J({ error: "ticket_not_in_wallet" }, 403);
+  try { // the match count on the link preview comes from the official Pop Hash, not from the browser
+    const ep = (await megapop()).epochs.find((x) => x.epoch === Number(m.e));
+    if (ep && /^\d{6}$/.test(String(ep.popHash || ""))) { const ph = String(ep.popHash); let c = 0; for (let i = 0; i < 6; i++) if (ph[i] === t[i]) c++; m.b = String(c); m.p = ph; }
+  } catch (e) { /* keep validated client values */ }
   const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map((x) => x.toString(16).padStart(2, "0")).join("");
   const known = await note.get(env, "h/" + hash);
   if (known && ID_RE.test(known)) return J({ id: known, url: ORIGIN + "/s/" + known, dedupe: true }, 200, 0);
@@ -288,7 +310,6 @@ async function cardUpload(req, env, url) {
   const used = Number(await note.get(env, rk) || 0);
   if (used >= CARD_RATE) return J({ error: "rate_limited" }, 429);
   await note.put(env, rk, used + 1);
-  const m = cardMeta(url);
   let id = newId();
   for (let i = 0; i < 3 && await env.CARDS.head(id + ".png"); i++) id = newId(10);
   await env.CARDS.put(id + ".png", buf, { httpMetadata: { contentType: "image/png", cacheControl: "public, max-age=31536000, immutable" },
@@ -451,6 +472,13 @@ export default {
           if (!ADDR_RE.test(addr)) return J({ error: "bad_address" }, 400);
           const ep = url.searchParams.get("epoch");
           try { return J(await wallet(addr, ep ? Number(ep) : 0), 200, 30); }
+          catch (e) { if (e.busy) return J({ error: "busy" }, 429); throw e; }
+        }
+        if (url.pathname === "/api/wallet-ticket") {
+          const addr = (url.searchParams.get("addr") || "").trim(), n = (url.searchParams.get("n") || "").trim(), ep = Number(url.searchParams.get("epoch"));
+          if (!ADDR_RE.test(addr)) return J({ error: "bad_address" }, 400);
+          if (!/^\d{6}$/.test(n) || !(ep >= 1 && ep <= 65535)) return J({ error: "bad_ticket" }, 400);
+          try { return J(Object.assign({ address: addr.toLowerCase(), epoch: ep, number: n }, await heldTicket(addr, ep, n)), 200, 30); }
           catch (e) { if (e.busy) return J({ error: "busy" }, 429); throw e; }
         }
         if (url.pathname === "/api/funding-history") {
